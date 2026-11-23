@@ -43,9 +43,26 @@ In a layout of your own, point the spaces block at this mod:
 
 and give `keys.json` the same key in a section named after that layout, `layout:<name>`.
 
+### With space folders
+
+Use [space folders](https://github.com/jankeesvw/herdr-space-folders) by Jankees van Woezik? Keep it, and add the button to it with `patches/space-folders.patch` (17 lines and the icon):
+
+```sh
+patch -p1 -d ~/.config/herdr-app/mods/space-folders < herdr-reconnect/patches/space-folders.patch
+herdr-app check ~/.config/herdr-app/mods/space-folders
+```
+
+For the key, add this line to the `layout:main-folders` section of `~/.config/herdr-app/keys.json`:
+
+```json
+"ctrl-space shift-r": "space-folders.login"
+```
+
+The key goes through space folders' own command loop, next to its `next` and `prev`. The patch fits space folders as of commit `26442c6`. If space folders is a link to its git clone, take the patch out before a `git pull` (`patch -R -p1` with the same file), then apply it again.
+
 ### Another spaces mod
 
-Use a different spaces list, such as [space folders](https://github.com/jankeesvw/herdr-space-folders)? The second commit of this repository is the whole change (about 20 lines). Apply the same lines to that mod's machine header.
+The second commit of this repository is the whole change to Herdr's spaces list (about 20 lines). Add the same lines to the machine header of another spaces mod. If that mod already reads `nextCommand()`, handle `login` in its loop, as the space folders patch does: a second loop takes commands away from the first.
 
 ## What it runs
 
