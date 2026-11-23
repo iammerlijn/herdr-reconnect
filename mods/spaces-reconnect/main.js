@@ -2,10 +2,24 @@
 // grouped by machine when more than one is known. After a space's name, the repo
 // its first terminal is in now, only where unusual: branch, ahead/behind. Agent state lives in the agents list, not here. Click to
 // switch, right-click for its menu, drag to reorder.
+// herdr-reconnect: a machine that can't be reached gets a ⟳ button. It opens the
+// Tailscale SSH login page for that machine in the browser (see openLogin).
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, ScrollHandle } from "gpui-base";
-import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout } from "herdr";
+import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout, nextCommand, checking } from "herdr";
+
+// Asks ssh for the machine's Tailscale SSH check page and opens it in the
+// browser. The target comes from `hc machine ls`; nothing is stored. BatchMode:
+// ssh never prompts. Only a login.tailscale.com URL is opened. ssh keeps waiting
+// until the login is done (or the timeout); Herdr then reconnects by itself.
+function openLogin(target) {
+  const script = `ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$1" true 2>&1 | grep -m1 -oE '^# To authenticate, visit: https://login\\.tailscale\\.com/[A-Za-z0-9/]+' | while read -r _ _ _ _ url; do open "$url" 2>/dev/null || xdg-open "$url"; done`;
+  exec("sh", ["-c", script, "sh", target], { timeout: 300000 }).catch(() => {});
+}
+
+// Machines the ⟳ button is for: saved over plain ssh, and not connected.
+const loginable = (machine) => machine && !machine.via && machine.target && machine.state !== "connected" && machine.state !== "needs_login";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -89,6 +103,10 @@ export default class Spaces extends View {
     try { this.folded = new Set(JSON.parse(localStorage.getItem("machines.folded") ?? "[]")); } catch { this.folded = new Set(); }
     this.refreshMachines(cx);
     cx.timer.every(15000, cx => this.refreshMachines(cx));
+    // `spaces-reconnect.login` (a key in keys.json): the ⟳ of every machine that shows one.
+    if (!checking()) cx.spawn(async () => {
+      for (;;) if (await nextCommand() === "login") for (const m of this.machines) if (loginable(m) && !this.rebuilt(m)) openLogin(m.target);
+    });
     // Refresh only when the refs could have changed (see `due`).
     cx.timer.every(250, (cx) => this.checkNew(cx));
   }
@@ -382,6 +400,9 @@ export default class Spaces extends View {
         .when(collapsed, el => el.child(div().relative().flex_none().child(icon).when(Boolean(m), el => el.child(badge))))
         .when(!collapsed, el => el.child(div().flex_1().truncate().child(m ?? "This computer"))
           .when(!connected && !rebuilt && !login, el => el.child(div().flex_none().child((machine?.state ?? "asleep").replace(/_/g, " "))))
+          .when(!rebuilt && loginable(machine), el => el.child(div().id(`machine-login-${m}`).flex_none().px(3).rounded(4)
+            .hover(s => s.bg(t.hover).text_color(t.foreground)).tooltip("Log in with Tailscale (opens the browser)")
+            .on_click((_e, cx) => { cx.stop_propagation(); openLogin(machine.target); }).child(svg("mods/spaces-reconnect/rotate-cw.svg").size(12))))
           .when(rebuilt, el => el.child(h_flex().flex_none().gap(3).items_center()
             .child(div().max_w(140).truncate().child(repair?.error || "rebuilt ·"))
             .child(div().id(`machine-connect-${m}`).text_color(repair?.error ? t.blocked : t.muted)

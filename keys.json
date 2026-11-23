@@ -1,0 +1,5 @@
+{
+  "layout:main-reconnect": {
+    "ctrl-space shift-r": "spaces-reconnect.login"
+  }
+}
