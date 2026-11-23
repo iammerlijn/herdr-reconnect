@@ -1,6 +1,6 @@
 # Herdr Reconnect
 
-![Herdr Reconnect: one click logs you back in to a machine that Tailscale SSH locked](social.png)
+![Herdr Reconnect: locked out of a machine? One click gets you back. The sidebar shows devbox as unreachable with a ⟳ button, the Tailscale login page opens in the browser, and devbox is connected again.](social.png)
 
 A ⟳ button in the spaces list of the [Herdr](https://herdr.dev) desktop app. When a machine can't be reached because Tailscale SSH wants a new login check, click ⟳ and the login page opens in your browser. Approve it, and Herdr connects again by itself.
 
