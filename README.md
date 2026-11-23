@@ -19,6 +19,8 @@ Tailscale SSH can ask for a new login check after some time. `ssh` then prints a
 
 ## Install
 
+Use [space folders](https://github.com/jankeesvw/herdr-space-folders)? Don't install the mod below: add the button to space folders instead (see [With space folders](#with-space-folders)). An AI agent that installs this from `RECIPE.md` asks you first.
+
 Clone this repository and copy the mod and the layout into Herdr's home:
 
 ```sh

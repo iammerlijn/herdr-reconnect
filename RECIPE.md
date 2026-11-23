@@ -4,6 +4,14 @@ Herdr's spaces list with a ⟳ button on each machine that isn't connected. A cl
 
 ![Herdr Reconnect](preview.png)
 
+## Before you install
+
+Look at which mod draws the spaces list in the person's shown layout (`herdr-app status` names the layout; find the block with `"id": "spaces"` in `layouts/<name>.json`).
+
+- **`space-folders`** (Jankees van Woezik's space folders): don't install `spaces-reconnect`, because that layout would lose the folders. Ask the person first, then apply `patches/space-folders.patch` to `mods/space-folders/` (`patch -p1 -d ~/.config/herdr-app/mods/space-folders < patches/space-folders.patch`), run `herdr-app check` on it, and add `"ctrl-space shift-r": "space-folders.login"` to the `layout:<that layout>` section of `keys.json`.
+- **`spaces`** (Herdr's own): install as usual: `mods/spaces-reconnect/`, `layouts/main-reconnect.json`, `keys.json`.
+- **Any other mod:** ask the person. Add the lines of this repository's second commit to that mod's machine header, or install `spaces-reconnect` as usual.
+
 ## What you see
 
 - **The spaces list** exactly as Herdr's own `spaces` mod (0.1.16) draws it: spaces per machine, a 26px header per machine once another machine is known.
