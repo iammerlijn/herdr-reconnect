@@ -9,7 +9,7 @@ Herdr's spaces list with a ⟳ button on each machine that isn't connected. A cl
 Look at which mod draws the spaces list in the person's shown layout (`herdr-app status` names the layout; find the block with `"id": "spaces"` in `layouts/<name>.json`).
 
 - **`space-folders`** (Jankees van Woezik's space folders): don't install `spaces-reconnect`, because that layout would lose the folders. Ask the person first, then apply `patches/space-folders.patch` to `mods/space-folders/` (`patch -p1 -d ~/.config/herdr-app/mods/space-folders < patches/space-folders.patch`), run `herdr-app check` on it, and add `"ctrl-space shift-r": "space-folders.login"` to the `layout:<that layout>` section of `keys.json`.
-- **`spaces`** (Herdr's own): install as usual: `mods/spaces-reconnect/`, `layouts/main-reconnect.json`, `keys.json`.
+- **`spaces`** (Herdr's own): install as usual: `mods/spaces-reconnect/`, `examples/main-reconnect.json` (copy it to `layouts/`), `keys.json`.
 - **Any other mod:** ask the person. Port the button to that mod as the README's "Another spaces mod" lists (one `nextCommand()` loop only), or install `spaces-reconnect` as usual.
 
 ## What you see
@@ -29,7 +29,7 @@ Look at which mod draws the spaces list in the person's shown layout (`herdr-app
 
 - **Mod** `mods/spaces-reconnect/`: `mod.clone` of Herdr's `spaces` (0.1.16). Added: `openLogin(target)` (one `exec("sh", ["-c", script, "sh", target], {timeout: 300000})`), `loginable(machine)`, the button in the machine header after the state text, and a `nextCommand()` loop for `login` (not started while `checking()`).
 - **Icon** `mods/spaces-reconnect/rotate-cw.svg`: Lucide `rotate-cw`, `stroke="currentColor"`.
-- **Layout** `layouts/main-reconnect.json`: Herdr's `main` 0.1.16 with the `spaces` block's mod set to `spaces-reconnect`.
+- **Layout** `examples/main-reconnect.json` (copy it to `layouts/`): Herdr's `main` 0.1.16 with the `spaces` block's mod set to `spaces-reconnect`.
 - **Keys** `keys.json`: `layout:main-reconnect` → `ctrl-space shift-r`: `spaces-reconnect.login`.
 - **herdr**: `exec`, `hc` (`machine ls --json`, already in the spaces mod), `nextCommand`, `checking`.
 

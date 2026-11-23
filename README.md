@@ -26,7 +26,7 @@ Clone this repository and copy the mod and the layout into Herdr's home:
 ```sh
 git clone https://github.com/iammerlijn/herdr-reconnect.git
 cp -R herdr-reconnect/mods/spaces-reconnect ~/.config/herdr-app/mods/
-cp herdr-reconnect/layouts/main-reconnect.json ~/.config/herdr-app/layouts/
+cp herdr-reconnect/examples/main-reconnect.json ~/.config/herdr-app/layouts/
 herdr-app check ~/.config/herdr-app/mods/spaces-reconnect
 herdr-app do layout.switch --name main-reconnect
 ```
