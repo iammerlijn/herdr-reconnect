@@ -10,7 +10,7 @@ Look at which mod draws the spaces list in the person's shown layout (`herdr-app
 
 - **`space-folders`** (Jankees van Woezik's space folders): don't install `spaces-reconnect`, because that layout would lose the folders. Ask the person first, then apply `patches/space-folders.patch` to `mods/space-folders/` (`patch -p1 -d ~/.config/herdr-app/mods/space-folders < patches/space-folders.patch`), run `herdr-app check` on it, and add `"ctrl-space shift-r": "space-folders.login"` to the `layout:<that layout>` section of `keys.json`.
 - **`spaces`** (Herdr's own): install as usual: `mods/spaces-reconnect/`, `layouts/main-reconnect.json`, `keys.json`.
-- **Any other mod:** ask the person. Add the lines of this repository's second commit to that mod's machine header, or install `spaces-reconnect` as usual.
+- **Any other mod:** ask the person. Port the button to that mod as the README's "Another spaces mod" lists (one `nextCommand()` loop only), or install `spaces-reconnect` as usual.
 
 ## What you see
 

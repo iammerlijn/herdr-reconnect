@@ -64,7 +64,14 @@ The key goes through space folders' own command loop, next to its `next` and `pr
 
 ### Another spaces mod
 
-The second commit of this repository is the whole change to Herdr's spaces list (about 20 lines). Add the same lines to the machine header of another spaces mod. If that mod already reads `nextCommand()`, handle `login` in its loop, as the space folders patch does: a second loop takes commands away from the first.
+To add the button to another spaces mod, port these parts from `mods/spaces-reconnect/main.js` (`patches/space-folders.patch` is a worked example):
+
+1. `openLogin()` and `loginable()`: copy them as they are, under the imports. Add `exec` to the `herdr` import if the mod doesn't import it.
+2. The icon: copy `rotate-cw.svg` into the mod's folder and change the path in `svg("mods/<your mod>/rotate-cw.svg")`.
+3. The button: add it to the machine header, after the state text. The condition is `m && loginable(machine)`. Drop `!rebuilt` if the mod has no `rebuilt()` (space folders has none).
+4. The key (optional): if the mod already has a `nextCommand()` loop, add `if (c === "login") …` to that loop. Don't start a second loop: two loops take commands from each other, so `login` or the mod's own commands get lost. Only a mod with no loop gets the loop from `init()`, with `nextCommand` and `checking` added to the import.
+
+Then run `herdr-app check` on the mod.
 
 ## What it runs
 
@@ -89,7 +96,7 @@ Use the Herdr TUI instead? It has no sidebar buttons, but a key does the same. P
 [[keys.command]]
 key = "prefix+alt+t"
 type = "shell"
-command = "ssh -o BatchMode=yes -- my-machine true 2>&1 | grep -m1 -oE '^# To authenticate, visit: https://login\\.tailscale\\.com/[A-Za-z0-9/]+' | while read -r _ _ _ _ url; do open \"$url\"; done"
+command = "ssh -o BatchMode=yes -- my-machine true 2>&1 | grep -m1 -oE '^# To authenticate, visit: https://login\\.tailscale\\.com/[A-Za-z0-9/]+' | while read -r _ _ _ _ url; do open \"$url\" 2>/dev/null || xdg-open \"$url\"; done"
 description = "Tailscale login"
 ```
 
