@@ -8,7 +8,7 @@ A ⟳ button in the spaces list of the [Herdr](https://herdr.dev) desktop app. W
 
 - **A button where you need it.** Each machine that is not connected gets a ⟳ next to its state in the sidebar.
 - **A key too.** `ctrl-space shift-r` does the same for every machine that shows a ⟳.
-- **Nothing to set up.** The machine's SSH target comes from Herdr's own machine list (`hc machine ls`). There are no settings, and the mod stores nothing.
+- **Nothing to set up.** The machine's SSH target comes from Herdr's own machine list (`hc machine ls`). The button adds no settings and stores nothing. (The spaces list it comes from keeps its own state, such as folded machines, as Herdr's spaces mod does.)
 - **Everything the spaces list already does.** It's Herdr's own spaces mod (0.1.16) with the button added.
 
 ![The spaces list with an unreachable machine](preview.png)
@@ -47,7 +47,7 @@ and give `keys.json` the same key in a section named after that layout, `layout:
 
 ### With space folders
 
-Use [space folders](https://github.com/jankeesvw/herdr-space-folders) by Jankees van Woezik? Keep it, and add the button to it with `patches/space-folders.patch` (17 lines and the icon):
+Use [space folders](https://github.com/jankeesvw/herdr-space-folders) by Jankees van Woezik? Keep it, and add the button to it with `patches/space-folders.patch` (83 lines and the icon):
 
 ```sh
 patch -p1 -d ~/.config/herdr-app/mods/space-folders < herdr-reconnect/patches/space-folders.patch
@@ -66,10 +66,10 @@ The key goes through space folders' own command loop, next to its `next` and `pr
 
 To add the button to another spaces mod, port these parts from `mods/spaces-reconnect/main.js` (`patches/space-folders.patch` is a worked example):
 
-1. `openLogin()` and `loginable()`: copy them as they are, under the imports. Add `exec` to the `herdr` import if the mod doesn't import it.
+1. `LOGIN`, `loggingIn`, `loginResult()`, `openLogin()` and `loginable()`: copy them as they are, under the imports. Add `exec` and `notify` to the `herdr` import and `Button` to the `gpui-base` import if the mod doesn't import them.
 2. The icon: copy `rotate-cw.svg` into the mod's folder and change the path in `svg("mods/<your mod>/rotate-cw.svg")`.
-3. The button: add it to the machine header, after the state text. The condition is `m && loginable(machine)`. Drop `!rebuilt` if the mod has no `rebuilt()` (space folders has none).
-4. The key (optional): if the mod already has a `nextCommand()` loop, add `if (c === "login") …` to that loop. Don't start a second loop: two loops take commands from each other, so `login` or the mod's own commands get lost. Only a mod with no loop gets the loop from `init()`, with `nextCommand` and `checking` added to the import.
+3. The button: add it to the machine header, after the state text. The condition is `m && loginable(machine)`. Drop `!rebuilt` if the mod has no `rebuilt()` (space folders has none). Its click calls `openLogin(machine, cx)`.
+4. The key (optional): if the mod already has a `nextCommand()` loop, add `if (c === "login") …` to that loop, with that loop's `cx`. Don't start a second loop: two loops take commands from each other, so `login` or the mod's own commands get lost. Only a mod with no loop gets the loop from `init()`, with `nextCommand` and `checking` added to the import.
 
 Then run `herdr-app check` on the mod.
 
@@ -85,8 +85,10 @@ ssh -o BatchMode=yes -o ConnectTimeout=10 -- <target> true
 - `BatchMode=yes`: ssh never asks for a password or a key.
 - Only a line `# To authenticate, visit: https://login.tailscale.com/…` from that output is used. Its URL is opened with `open` (macOS) or `xdg-open` (Linux). No other URL is ever opened.
 - ssh waits until you approve the login (at most 5 minutes), then stops. Herdr then connects to the machine again by itself.
+- While ssh waits, the ⟳ is dimmed, and a second click or key press doesn't start a second ssh.
+- If it fails, a notification tells you why: `ssh`, `open` or `xdg-open` is missing, the browser didn't open, the login timed out, or ssh couldn't reach the machine. If ssh connects with no login, a notification tells you that too.
 
-Nothing is written to disk, and nothing is sent anywhere except the normal SSH connection.
+Nothing is written to disk. The only network traffic is the SSH connection and the Tailscale login page (`https://login.tailscale.com/…`) that your browser opens.
 
 ## Herdr TUI
 
