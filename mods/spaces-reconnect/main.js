@@ -6,16 +6,77 @@
 // Tailscale SSH login page for that machine in the browser (see openLogin).
 
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex, ScrollHandle } from "gpui-base";
-import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout, nextCommand, checking } from "herdr";
+import { v_flex, h_flex, ScrollHandle, Button } from "gpui-base";
+import { spaces, machines, panes, run, openOverlay, notify, exec, hc, theme, shared, setShared, watchFolder, window, layout, nextCommand, checking } from "herdr";
 
 // Asks ssh for the machine's Tailscale SSH check page and opens it in the
 // browser. The target comes from `hc machine ls`; nothing is stored. BatchMode:
 // ssh never prompts. Only a login.tailscale.com URL is opened. ssh keeps waiting
-// until the login is done (or the timeout); Herdr then reconnects by itself.
-function openLogin(target) {
-  const script = `ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$1" true 2>&1 | grep -m1 -oE '^# To authenticate, visit: https://login\\.tailscale\\.com/[A-Za-z0-9/]+' | while read -r _ _ _ _ url; do open "$url" 2>/dev/null || xdg-open "$url"; done`;
-  exec("sh", ["-c", script, "sh", target], { timeout: 300000 }).catch(() => {});
+// until the login is done (at most 290 s); Herdr then reconnects by itself.
+// Exit codes: 0 done, 3 the browser didn't open, 124 timed out, 127 a command
+// is missing, else ssh's own. "opened" on stdout: the login page was opened.
+const LOGIN = `
+command -v ssh >/dev/null 2>&1 || { echo "ssh is not installed." >&2; exit 127; }
+if command -v open >/dev/null 2>&1; then opener=open
+elif command -v xdg-open >/dev/null 2>&1; then opener=xdg-open
+else echo "open or xdg-open is not installed." >&2; exit 127; fi
+{
+  ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$1" true 2>&1 &
+  ssh=$!
+  echo "@@ pid $ssh"
+  (sleep 290; kill "$ssh") >/dev/null 2>&1 &
+  watch=$!
+  wait "$ssh"; code=$?
+  kill "$watch" 2>/dev/null
+  echo "@@ exit $code"
+} | {
+  opened=0; code=1; last=
+  while IFS= read -r line; do
+    case $line in
+      "@@ pid "*) pid=\${line#"@@ pid "} ;;
+      "@@ exit "*) code=\${line#"@@ exit "}; break ;;
+      "# To authenticate, visit: https://login.tailscale.com/"*)
+        url=\${line#"# To authenticate, visit: "}
+        url=\${url%%[!A-Za-z0-9/:.]*}
+        if [ "$opened" = 0 ]; then
+          "$opener" "$url" >/dev/null 2>&1 || { kill "$pid" 2>/dev/null; echo "$opener could not open the login page." >&2; exit 3; }
+          opened=1; echo opened
+        fi ;;
+      ?*) last=$line ;;
+    esac
+  done
+  [ "$code" = 0 ] && exit 0
+  [ "$code" = 143 ] && exit 124
+  [ -n "$last" ] && echo "$last" >&2
+  exit "$code"
+}`;
+
+// Machines with a login running now: a second click or key press waits for it.
+const loggingIn = new Set();
+
+function loginResult(name, r) {
+  const opened = r.stdout.includes("opened");
+  const why = r.stderr.trim().split("\n")[0];
+  if (r.code === 0) return opened ? null : { title: `${name} needs no Tailscale login`, body: "ssh connected. Herdr connects again by itself.", level: "info" };
+  if (r.code === 124) return { title: `Tailscale login for ${name} timed out`, body: "The login was not approved in 5 minutes. Click ⟳ to try again.", level: "warning" };
+  if (r.code === 3 || r.code === 127) return { title: `Can't log in to ${name}`, body: why, level: "error" };
+  return { title: opened ? `Tailscale login for ${name} didn't finish` : `Can't reach ${name}`, body: why || `ssh stopped with code ${r.code}.`, level: "error" };
+}
+
+// Runs LOGIN for one machine, once at a time. Redraws when it starts and ends.
+function openLogin(machine, cx) {
+  const name = machine.name;
+  if (loggingIn.has(name)) return;
+  loggingIn.add(name);
+  cx.notify();
+  cx.spawn(async (cx) => {
+    let n;
+    try { n = loginResult(name, await exec("sh", ["-c", LOGIN, "sh", machine.target], { timeout: 300000 })); }
+    catch (e) { n = { title: `Can't log in to ${name}`, body: String(e?.message ?? e), level: "error" }; }
+    loggingIn.delete(name);
+    if (n) notify(n);
+    cx.notify();
+  });
 }
 
 // Machines the ⟳ button is for: saved over plain ssh, and not connected.
@@ -104,8 +165,8 @@ export default class Spaces extends View {
     this.refreshMachines(cx);
     cx.timer.every(15000, cx => this.refreshMachines(cx));
     // `spaces-reconnect.login` (a key in keys.json): the ⟳ of every machine that shows one.
-    if (!checking()) cx.spawn(async () => {
-      for (;;) if (await nextCommand() === "login") for (const m of this.machines) if (loginable(m) && !this.rebuilt(m)) openLogin(m.target);
+    if (!checking()) cx.spawn(async (cx) => {
+      for (;;) if (await nextCommand() === "login") for (const m of this.machines) if (loginable(m) && !this.rebuilt(m)) openLogin(m, cx);
     });
     // Refresh only when the refs could have changed (see `due`).
     cx.timer.every(250, (cx) => this.checkNew(cx));
@@ -400,9 +461,12 @@ export default class Spaces extends View {
         .when(collapsed, el => el.child(div().relative().flex_none().child(icon).when(Boolean(m), el => el.child(badge))))
         .when(!collapsed, el => el.child(div().flex_1().truncate().child(m ?? "This computer"))
           .when(!connected && !rebuilt && !login, el => el.child(div().flex_none().child((machine?.state ?? "asleep").replace(/_/g, " "))))
-          .when(!rebuilt && loginable(machine), el => el.child(div().id(`machine-login-${m}`).flex_none().px(3).rounded(4)
-            .hover(s => s.bg(t.hover).text_color(t.foreground)).tooltip("Log in with Tailscale (opens the browser)")
-            .on_click((_e, cx) => { cx.stop_propagation(); openLogin(machine.target); }).child(svg("mods/spaces-reconnect/rotate-cw.svg").size(12))))
+          .when(!rebuilt && loginable(machine), el => el.child(Button.new(`machine-login-${m}`).flex_none().px(3).rounded(4).tab_index(0)
+            .accessibility_label(loggingIn.has(m) ? `Waiting for the Tailscale login for ${m}` : `Log in to ${m} with Tailscale`)
+            .tooltip(loggingIn.has(m) ? "Waiting for the login in the browser…" : "Log in with Tailscale (opens the browser)")
+            .disabled(loggingIn.has(m)).when(loggingIn.has(m), el => el.opacity(0.4))
+            .when(!loggingIn.has(m), el => el.hover(s => s.bg(t.hover).text_color(t.foreground)))
+            .on_click((_e, cx) => { cx.stop_propagation(); openLogin(machine, cx); }).child(svg("mods/spaces-reconnect/rotate-cw.svg").size(12))))
           .when(rebuilt, el => el.child(h_flex().flex_none().gap(3).items_center()
             .child(div().max_w(140).truncate().child(repair?.error || "rebuilt ·"))
             .child(div().id(`machine-connect-${m}`).text_color(repair?.error ? t.blocked : t.muted)
